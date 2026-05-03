@@ -59,7 +59,9 @@ export const appConfig = {
   openaiModerationMaxAttempts: num(process.env.OPENAI_MOD_MAX_ATTEMPTS, 6),
   openaiModerationRetryCapMs: num(process.env.OPENAI_MOD_RETRY_CAP_MS, 60000),
   moderationMinSendIntervalMs: num(process.env.MOD_MIN_SEND_INTERVAL_MS, 800),
-  localModerationModel: process.env.LOCAL_MODERATION_MODEL || "Xenova/toxic-bert",
+  localModerationModel:
+    process.env.LOCAL_MODERATION_MODEL ||
+    "hoan/multilingual-toxic-xlm-roberta-dynamic-quantized",
   transformersCacheDir: process.env.TRANSFORMERS_CACHE || "",
   publicApiKeys: (process.env.PUBLIC_API_KEYS || "")
     .split(",")

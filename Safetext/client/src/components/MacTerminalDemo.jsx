@@ -37,7 +37,7 @@ console.log(await r.json());`;
 
   const responseSample = `{
   "id": "modr-sg-…",
-  "model": "Xenova/toxic-bert",
+  "model": "hoan/multilingual-toxic-xlm-roberta-dynamic-quantized",
   "results": [{ "flagged": false, "categories": { "toxic": false }, "category_scores": { "toxic": 0.001 } }]
 }`;
 

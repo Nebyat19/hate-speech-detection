@@ -106,7 +106,10 @@ console.log(await r.json());`;
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
           {APP_NAME} runs a <strong className="text-zinc-300">local</strong> classifier (
-          <code className="font-mono text-zinc-300">Xenova/toxic-bert</code> by default). Scores are
+          <code className="font-mono text-zinc-300">
+            hoan/multilingual-toxic-xlm-roberta-dynamic-quantized
+          </code>{" "}
+          by default). Scores are
           probabilistic; combine with human review for production moderation.
         </p>
 
@@ -168,7 +171,7 @@ console.log(await r.json());`;
         <div className="mt-3">
           <CodeBlock>{`{
   "id": "modr-sg-…",
-  "model": "Xenova/toxic-bert",
+  "model": "hoan/multilingual-toxic-xlm-roberta-dynamic-quantized",
   "results": [
     {
       "flagged": false,

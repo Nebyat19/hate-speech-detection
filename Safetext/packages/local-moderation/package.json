@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Local ONNX text classification for Safetext (Xenova / Transformers.js). Maintain independently from the API server.",
+  "description": "Local ONNX moderation via Transformers.js (default: XLM-RoBERTa multilingual detoxify-style toxicity ONNX).",
   "main": "./src/index.js",
   "exports": {
     ".": "./src/index.js"
