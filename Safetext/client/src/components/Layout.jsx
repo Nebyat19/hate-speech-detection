@@ -10,6 +10,15 @@ const linkClass = ({ isActive }) =>
       : "text-zinc-400 hover:bg-white/5 hover:text-white",
   ].join(" ");
 
+const footerLink =
+  "text-sm text-zinc-500 transition-colors hover:text-emerald-400/90";
+
+const footerNavClass = ({ isActive }) =>
+  [
+    "text-sm transition-colors",
+    isActive ? "font-medium text-emerald-400/95" : "text-zinc-500 hover:text-emerald-400/90",
+  ].join(" ");
+
 export function Layout() {
   return (
     <div className="flex min-h-dvh flex-col">
@@ -49,6 +58,71 @@ export function Layout() {
       <main className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col px-4 py-6">
         <Outlet />
       </main>
+      <footer className="mt-auto border-t border-sg-border/80 bg-sg-surface/20">
+        <div className="mx-auto max-w-7xl px-4 py-10">
+          <div className="flex flex-col gap-10 sm:flex-row sm:justify-between">
+            <div className="max-w-sm">
+              <div className="flex items-center gap-2">
+                <span
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 text-sm font-bold text-sg-bg shadow-md shadow-emerald-500/15"
+                  aria-hidden
+                >
+                  {APP_INITIAL}
+                </span>
+                <p className="text-sm font-semibold text-white">{APP_NAME}</p>
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-500">{APP_TAGLINE}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-8 sm:gap-16">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
+                  Product
+                </p>
+                <ul className="mt-3 flex flex-col gap-2" role="list">
+                  <li>
+                    <NavLink to="/" className={footerNavClass} end>
+                      Home
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink to="/chat" className={footerNavClass}>
+                      Community chat
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink to="/dashboard" className={footerNavClass}>
+                      Safety dashboard
+                    </NavLink>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
+                  Developers
+                </p>
+                <ul className="mt-3 flex flex-col gap-2" role="list">
+                  <li>
+                    <NavLink to="/docs" className={footerNavClass}>
+                      API docs
+                    </NavLink>
+                  </li>
+                  <li>
+                    <a href="/openapi.yaml" className={footerLink} target="_blank" rel="noreferrer">
+                      OpenAPI spec
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div className="mt-10 flex flex-col gap-3 border-t border-sg-border/60 pt-8 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-zinc-600">
+              © {new Date().getFullYear()} {APP_NAME}. Automated screening assists moderators; review critical
+              decisions in context.
+            </p>
+          </div>
+        </div>
+      </footer>
       <ToastStack />
     </div>
   );
