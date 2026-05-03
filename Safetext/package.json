@@ -1,0 +1,19 @@
+{
+  "name": "Safetext",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c cyan,magenta \"npm run dev -w Safetext-server\" \"npm run dev -w Safetext-client\"",
+    "build": "npm run build -w Safetext-client",
+    "db:generate": "npm run db:generate -w Safetext-server",
+    "db:push": "npm run db:push -w Safetext-server",
+    "smoke:local-mod": "npm run test:classify -w @safetext/local-moderation"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

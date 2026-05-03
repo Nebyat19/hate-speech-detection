@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  displayName  String
+  sessionId    String    @unique
+  avatarColor  String
+  strikeCount  Int       @default(0)
+  riskScore    Int       @default(0)
+  status       String    @default("SAFE")
+  muted        Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  messages     Message[]
+  reportsMade  Report[]  @relation("ReporterReports")
+}
+
+model Message {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content       String
+  status        String
+  toxicityScore Float?
+  createdAt     DateTime @default(now())
+  reports       Report[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  messageId  String
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User     @relation("ReporterReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  reason     String
+  createdAt  DateTime @default(now())
+
+  @@index([messageId])
+  @@index([reporterId])
+}

@@ -1,0 +1,26 @@
+{
+  "name": "Safetext-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "prisma db push",
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.7.0",
+    "@safetext/local-moderation": "file:../packages/local-moderation",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "nodemailer": "^7.0.3",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "prisma": "^6.7.0"
+  }
+}

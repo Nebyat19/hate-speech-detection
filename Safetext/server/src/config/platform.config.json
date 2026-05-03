@@ -1,0 +1,6 @@
+{
+  "provider": "local",
+  "maxStrikes": 3,
+  "emailEnabled": true,
+  "multilingualEnabled": false
+}

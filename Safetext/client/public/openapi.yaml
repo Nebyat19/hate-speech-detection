@@ -1,0 +1,108 @@
+openapi: 3.0.3
+info:
+  title: __APP_NAME__ Moderation API
+  description: |
+    OpenAI-compatible **POST /v1/moderations** for toxic text classification (local ONNX).
+    Same request/response conventions as [OpenAI Moderations](https://platform.openai.com/docs/api-reference/moderations)
+    for the fields we support (`input`, `id`, `model`, `results[].flagged`, `categories`, `category_scores`).
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3001
+    description: API server (set to your deployment host in production)
+
+tags:
+  - name: Moderations
+    description: OpenAI-style moderation
+
+paths:
+  /v1/moderations:
+    post:
+      tags: [Moderations]
+      summary: Create moderation (OpenAI-compatible)
+      operationId: createModeration
+      description: |
+        Body matches OpenAI `POST /v1/moderations`: required `input` (string or array of strings).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [input]
+              properties:
+                input:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items: { type: string }
+                model:
+                  type: string
+                  description: Optional; echoed in response
+            examples:
+              single:
+                value:
+                  input: "Thanks for your help."
+              batch:
+                value:
+                  input: ["hello", "you are stupid"]
+      responses:
+        "200":
+          description: OpenAI-shaped moderation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  model: { type: string }
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        flagged: { type: boolean }
+                        categories:
+                          type: object
+                          additionalProperties: { type: boolean }
+                        category_scores:
+                          type: object
+                          additionalProperties: { type: number, format: float }
+        "400":
+          description: Invalid request (e.g. missing input)
+        "401":
+          description: Invalid API key when PUBLIC_API_KEYS is set
+        "429":
+          description: Rate limited
+
+  /v1/moderate:
+    post:
+      tags: [Moderations]
+      summary: Legacy __APP_NAME__ body (text field)
+      operationId: moderateLegacy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+      responses:
+        "200":
+          description: Flat safe/toxicityScore response
+
+  /v1/health:
+    get:
+      summary: Health
+      operationId: health
+      responses:
+        "200":
+          description: OK
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key

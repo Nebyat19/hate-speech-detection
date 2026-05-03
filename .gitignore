@@ -1,0 +1,4 @@
+# JavaScript / Node dependencies (any folder at any depth)
+**/node_modules/
+.env
+.DS_Store
