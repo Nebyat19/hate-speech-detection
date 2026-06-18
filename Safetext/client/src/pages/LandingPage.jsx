@@ -21,16 +21,16 @@ export function LandingPage() {
               Community chat with live moderation
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-lg text-zinc-400 lg:mx-0">
-              Local ONNX scoring, strikes, safety dashboard, and an OpenAI-shaped{" "}
+              Local ONNX scoring, Amharic support, strikes, safety dashboard, and an OpenAI-shaped{" "}
               <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-sm text-emerald-200/90">
                 POST /v1/moderations
               </code>{" "}
-              API — all from this app.
+              API — built for safer communities, lower review cost, and better multilingual coverage.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
               <Link
                 to="/chat"
-                className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-3 text-sm font-semibold text-sg-bg shadow-lg shadow-emerald-500/25 transition hover:brightness-110"
+                className="rounded-xl bg-linear-to-r from-emerald-500 to-teal-600 px-6 py-3 text-sm font-semibold text-sg-bg shadow-lg shadow-emerald-500/25 transition hover:brightness-110"
               >
                 Open community chat
               </Link>
@@ -49,7 +49,7 @@ export function LandingPage() {
             </div>
           </div>
 
-          <div className="w-full shrink-0 lg:w-[min(100%,26rem)] xl:w-[28rem]">
+          <div className="w-full shrink-0 lg:w-[min(100%,26rem)] xl:w-md">
             <MacTerminalDemo />
             <p className="mt-4 text-center text-xs text-zinc-500 lg:text-right">
               <Link
@@ -66,16 +66,16 @@ export function LandingPage() {
       <div className="mx-auto mt-16 grid max-w-5xl gap-4 px-4 sm:grid-cols-3">
         {[
           {
-            title: "Live screening",
-            body: "Messages analyzed before they appear; clear approve / block feedback.",
+            title: "Real-world value",
+            body: "Useful for chat apps, communities, schools, support teams, and social platforms that need safety checks.",
           },
           {
-            title: "Moderator view",
-            body: "Feed, flagged queue, and risk-ranked users in one place.",
+            title: "Lower manual work",
+            body: "Automates first-pass review so moderators can focus on the hardest decisions.",
           },
           {
-            title: "Integrate anywhere",
-            body: "Call the moderation API from your stack — same shape as OpenAI moderations.",
+            title: "Multilingual coverage",
+            body: "Supports Amharic alongside the default model, which is a strong competition differentiator.",
           },
         ].map((c) => (
           <div
@@ -86,6 +86,14 @@ export function LandingPage() {
             <p className="mt-2 text-sm leading-relaxed text-zinc-500">{c.body}</p>
           </div>
         ))}
+      </div>
+
+      <div className="mx-auto mt-8 max-w-5xl px-4">
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 text-sm leading-relaxed text-zinc-300 shadow-lg shadow-black/15">
+          Safetext is designed to make moderation practical in the real world: it can run locally for privacy and cost,
+          it supports Amharic for underserved users, and it exposes clear API and dashboard views so teams can trust and
+          operate it in production.
+        </div>
       </div>
     </div>
   );

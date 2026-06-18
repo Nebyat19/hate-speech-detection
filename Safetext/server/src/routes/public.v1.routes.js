@@ -25,8 +25,14 @@ router.get("/health", (_req, res) => {
   res.json({
     ok: true,
     service: "Safetext-public-v1",
+    version: appConfig.appVersion,
+    uptimeSeconds: Number(process.uptime().toFixed(1)),
     model: appConfig.localModerationModel,
     amharicModel: appConfig.amharicModerationModel,
+    models: {
+      local: appConfig.localModerationModel,
+      amharic: appConfig.amharicModerationModel,
+    },
   });
 });
 

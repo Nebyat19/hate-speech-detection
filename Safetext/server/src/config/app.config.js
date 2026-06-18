@@ -16,7 +16,20 @@ function loadPlatformFile() {
   return JSON.parse(raw);
 }
 
+function loadPackageVersion() {
+  try {
+    const raw = readFileSync(path.resolve(__dirname, "../../package.json"), "utf8");
+    const pkg = JSON.parse(raw);
+    return typeof pkg.version === "string" && pkg.version.trim()
+      ? pkg.version.trim()
+      : "1.0.0";
+  } catch {
+    return "1.0.0";
+  }
+}
+
 const platform = loadPlatformFile();
+const appVersion = loadPackageVersion();
 
 const num = (v, fallback) => {
   const n = Number(v);
@@ -44,6 +57,7 @@ const provider = providerFromEnv
 
 export const appConfig = {
   appName,
+  appVersion,
   provider,
   maxStrikes: num(process.env.MAX_STRIKES, num(platform.maxStrikes, 3)),
   moderationFlagThreshold: num(process.env.MODERATION_FLAG_THRESHOLD, 0.5),

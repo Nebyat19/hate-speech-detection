@@ -17,6 +17,15 @@ function resolveBranding(mode) {
 }
 
 /** @param {string} mode */
+function resolveApiProxyTarget(mode) {
+  const env = loadEnv(mode, __dirname, "");
+  return (
+    String(env.VITE_API_PROXY_TARGET || env.VITE_API_ORIGIN || "http://localhost:3001")
+      .trim() || "http://localhost:3001"
+  );
+}
+
+/** @param {string} mode */
 function brandingOpenApiPlugin(mode) {
   const { name } = resolveBranding(mode);
   return {
@@ -50,6 +59,7 @@ function brandingOpenApiPlugin(mode) {
 
 export default defineConfig(({ mode }) => {
   const { name, tagline } = resolveBranding(mode);
+  const apiProxyTarget = resolveApiProxyTarget(mode);
   return {
     plugins: [
       react(),
@@ -68,11 +78,11 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         "/api": {
-          target: "http://app:3001",
+          target: apiProxyTarget,
           changeOrigin: true,
         },
         "/v1": {
-          target: "http://app:3001",
+          target: apiProxyTarget,
           changeOrigin: true,
         },
       },

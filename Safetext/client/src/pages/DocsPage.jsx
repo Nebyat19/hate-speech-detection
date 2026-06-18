@@ -7,6 +7,7 @@ const nav = [
   { href: "#introduction", label: "Introduction" },
   { href: "#authentication", label: "Authentication" },
   { group: "Endpoints" },
+  { href: "#health", label: "Health check" },
   { href: "#moderations", label: "Create moderation" },
   { href: "#legacy", label: "Legacy: moderate" },
   { group: "Spec" },
@@ -123,6 +124,24 @@ console.log(await r.json());`;
           configured, requests are accepted without auth (demo only).
         </p>
 
+        <h2 id="health" className="mt-10 scroll-mt-28 text-xl font-semibold text-white">
+          Health check
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
+          Use <code className="font-mono text-zinc-300">GET /v1/health</code> to confirm the service is up, see the
+          running version, and verify the configured local and Amharic model names before sending traffic.
+        </p>
+        <div className="mt-3">
+          <CodeBlock>{`{
+  "ok": true,
+  "service": "Safetext-public-v1",
+  "version": "1.0.0",
+  "uptimeSeconds": 42.1,
+  "model": "hoan/multilingual-toxic-xlm-roberta-dynamic-quantized",
+  "amharicModel": "uhhlt/amharic-hate-speech"
+}`}</CodeBlock>
+        </div>
+
         <h2 id="moderations" className="mt-10 scroll-mt-28 text-xl font-semibold text-white">
           Create moderation
         </h2>
@@ -140,7 +159,7 @@ console.log(await r.json());`;
 
         <h3 className="mt-8 text-sm font-semibold text-zinc-200">Request body</h3>
         <div className="mt-3 overflow-x-auto rounded-xl border border-sg-border">
-          <table className="w-full min-w-[32rem] text-left text-sm">
+          <table className="w-full min-w-lg text-left text-sm">
             <thead>
               <tr className="border-b border-sg-border bg-sg-surface/80 text-xs uppercase tracking-wide text-zinc-500">
                 <th className="px-3 py-2 font-medium">Field</th>

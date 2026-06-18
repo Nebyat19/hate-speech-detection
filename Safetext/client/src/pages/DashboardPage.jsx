@@ -36,6 +36,165 @@ function riskTierPill(tier) {
   return "text-emerald-200 ring-emerald-500/30";
 }
 
+function formatValue(value) {
+  return Number.isFinite(value) ? Number(value).toFixed(2) : "0.00";
+}
+
+function buildLinePath(points, width, height, padding) {
+  if (!points.length) return "";
+  const usableWidth = width - padding * 2;
+  const usableHeight = height - padding * 2;
+  const max = Math.max(...points.map((p) => p.value), 1);
+  const step = points.length === 1 ? 0 : usableWidth / (points.length - 1);
+
+  return points
+    .map((point, index) => {
+      const x = padding + index * step;
+      const y = padding + (1 - point.value / max) * usableHeight;
+      return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function LineGraphCard({ title, description, points, accent = "emerald" }) {
+  const width = 360;
+  const height = 170;
+  const padding = 16;
+  const max = Math.max(...points.map((p) => p.value), 1);
+  const path = buildLinePath(points, width, height, padding);
+  const tint = accent === "rose" ? "stroke-rose-300 fill-rose-400/15" : "stroke-emerald-300 fill-emerald-400/15";
+  const glow = accent === "rose" ? "drop-shadow-[0_0_14px_rgba(251,113,133,0.22)]" : "drop-shadow-[0_0_14px_rgba(52,211,153,0.20)]";
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-sg-border bg-sg-surface/35 shadow-lg shadow-black/25">
+      <div className="border-b border-sg-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        <p className="text-xs text-zinc-500">{description}</p>
+      </div>
+      <div className="p-4">
+        {points.length === 0 ? (
+          <p className="py-10 text-center text-xs text-zinc-500">Waiting for enough data to chart…</p>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+            <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full overflow-visible">
+              <defs>
+                <linearGradient id={`graph-${accent}-fill`} x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor={accent === "rose" ? "#fda4af" : "#6ee7b7"} stopOpacity="0.34" />
+                  <stop offset="100%" stopColor={accent === "rose" ? "#fda4af" : "#6ee7b7"} stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
+              {[0, 0.5, 1].map((tick) => {
+                const y = padding + (1 - tick) * (height - padding * 2);
+                return (
+                  <line
+                    key={tick}
+                    x1={padding}
+                    x2={width - padding}
+                    y1={y}
+                    y2={y}
+                    className="stroke-white/8"
+                    strokeWidth="1"
+                    strokeDasharray="4 6"
+                  />
+                );
+              })}
+              <path
+                d={`${path} L ${width - padding},${height - padding} L ${padding},${height - padding} Z`}
+                fill={`url(#graph-${accent}-fill)`}
+              />
+              <path d={path} className={`fill-none stroke-[2.5] ${tint} ${glow}`} strokeLinecap="round" strokeLinejoin="round" />
+              {points.map((point, index) => {
+                const step = points.length === 1 ? 0 : (width - padding * 2) / (points.length - 1);
+                const x = padding + index * step;
+                const y = padding + (1 - point.value / max) * (height - padding * 2);
+                return (
+                  <g key={`${point.label}-${index}`}>
+                    <circle cx={x} cy={y} r="4" className="fill-sg-surface stroke-current text-white/75" strokeWidth="2" />
+                  </g>
+                );
+              })}
+            </svg>
+            <div className="flex min-w-0 flex-col gap-2 text-xs text-zinc-500 lg:pb-2">
+              <div className="flex items-center justify-between gap-4">
+                <span>Peak</span>
+                <span className="font-mono text-zinc-300">{formatValue(max)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Latest</span>
+                <span className="font-mono text-zinc-300">{formatValue(points.at(-1)?.value ?? 0)}</span>
+              </div>
+              <div className="space-y-1 pt-2">
+                {points.slice(-5).map((point) => (
+                  <div key={point.label} className="flex items-center justify-between gap-4">
+                    <span className="truncate">{point.label}</span>
+                    <span className="font-mono text-zinc-300">{formatValue(point.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BarGraphCard({ title, description, rows, accent = "amber" }) {
+  const width = 360;
+  const height = 180;
+  const padding = 16;
+  const max = Math.max(...rows.map((row) => row.value), 1);
+  const barHeight = rows.length ? (height - padding * 2 - (rows.length - 1) * 12) / rows.length : 0;
+  const fillClass = accent === "rose" ? "bg-rose-400" : accent === "emerald" ? "bg-emerald-400" : "bg-amber-300";
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-sg-border bg-sg-surface/35 shadow-lg shadow-black/25">
+      <div className="border-b border-sg-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        <p className="text-xs text-zinc-500">{description}</p>
+      </div>
+      <div className="p-4">
+        {rows.length === 0 ? (
+          <p className="py-10 text-center text-xs text-zinc-500">No ranked users to chart yet.</p>
+        ) : (
+          <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full overflow-visible">
+            {rows.map((row, index) => {
+              const y = padding + index * (barHeight + 12);
+              const barWidth = (row.value / max) * (width - 120);
+              return (
+                <g key={row.label}>
+                  <text x={padding} y={y + barHeight / 2 - 4} className="fill-zinc-300 text-[11px] font-medium">
+                    {row.label}
+                  </text>
+                  <text x={width - padding} y={y + barHeight / 2 - 4} textAnchor="end" className="fill-zinc-400 text-[11px] font-mono">
+                    {formatValue(row.value)}
+                  </text>
+                  <rect
+                    x={padding}
+                    y={y + barHeight / 2 + 2}
+                    width={width - padding * 2}
+                    height="8"
+                    rx="999"
+                    className="fill-white/6"
+                  />
+                  <rect
+                    x={padding}
+                    y={y + barHeight / 2 + 2}
+                    width={Math.max(barWidth, 4)}
+                    height="8"
+                    rx="999"
+                    className={fillClass}
+                  />
+                </g>
+              );
+            })}
+          </svg>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const socket = useAppSocket();
   const { pushToast } = useToasts();
@@ -48,6 +207,26 @@ export function DashboardPage() {
   const sortedRows = useMemo(
     () => [...rows].sort((a, b) => (b.compositeRisk ?? 0) - (a.compositeRisk ?? 0)),
     [rows]
+  );
+
+  const recentToxicitySeries = useMemo(
+    () =>
+      liveFeed
+        .slice(-12)
+        .map((message, index) => ({
+          label: message.user?.displayName ? message.user.displayName : `M${index + 1}`,
+          value: Number(message.toxicityScore ?? 0),
+        })),
+    [liveFeed]
+  );
+
+  const riskSeries = useMemo(
+    () =>
+      sortedRows.slice(0, 6).map((row) => ({
+        label: row.displayName,
+        value: Number(row.compositeRisk ?? 0),
+      })),
+    [sortedRows]
   );
 
   useEffect(() => {
@@ -141,6 +320,21 @@ export function DashboardPage() {
           <StatCard label="Escalated" value={stats.escalatedUsers} tone="danger" />
         </div>
       )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <LineGraphCard
+          title="Recent toxicity trend"
+          description="Last 12 approved messages plotted by model score."
+          points={recentToxicitySeries}
+          accent="emerald"
+        />
+        <BarGraphCard
+          title="Top risk users"
+          description="Composite risk for the highest-ranked members."
+          rows={riskSeries}
+          accent="amber"
+        />
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="overflow-hidden rounded-2xl border border-sg-border bg-sg-surface/35 shadow-lg shadow-black/25">
