@@ -3,6 +3,9 @@ import { appConfig } from "../config/app.config.js";
 
 export const localModerationEngine = createModerator({
   modelId: appConfig.localModerationModel,
+  amharicEnabled: appConfig.multilingualEnabled,
+  amharicModelId: appConfig.amharicModerationModel,
+  hfApiToken: appConfig.hfApiToken?.trim() || null,
   cacheDir: appConfig.transformersCacheDir?.trim() || null,
   onFirstLoad: (modelId) =>
     console.info(

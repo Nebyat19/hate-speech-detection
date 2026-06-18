@@ -1,7 +1,24 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { env, pipeline } from "@xenova/transformers";
-import { primaryFlaggedCategoryLabel, toxicityProbabilityFromLabels } from "./toxicity.js";
+
+import {
+  AMHARIC_BUNDLE_DIR_NAME,
+  AMHARIC_HATE_SPEECH_REPO,
+  amharicOnnxBundleReady,
+  ensureAmharicOnnxBundleCompat,
+  ensureAmharicTokenizerCompat,
+  classifyAmharicViaHfApi,
+  DEFAULT_AMHARIC_BUNDLE_DIR,
+} from "./amharicHateSpeech.js";
+
+import { containsAmharic, containsLatin } from "./scriptDetect.js";
+
+import {
+  primaryFlaggedCategoryLabel,
+  toxicityProbabilityFromLabels,
+} from "./toxicity.js";
+
 import {
   ensureXlmMultilingualOnnxBundle,
   XLM_MULTILINGUAL_TOXIC_REPO,
@@ -9,108 +26,293 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** Default: XLM-RoBERTa multilingual toxicity (Detoxify-style, ONNX). First run downloads ~280MB into .xlm-multilingual-toxic/. */
-export const DEFAULT_LOCAL_MODERATION_MODEL = XLM_MULTILINGUAL_TOXIC_REPO;
+export const DEFAULT_LOCAL_MODERATION_MODEL =
+  XLM_MULTILINGUAL_TOXIC_REPO;
 
-/** Package root (…/packages/local-moderation). ONNX bundle lives in ${PKG_ROOT}/.xlm-multilingual-toxic. */
 const PKG_ROOT = path.join(__dirname, "..");
 
 const XLM_BUNDLE_DIR_NAME = ".xlm-multilingual-toxic";
 
 const DEFAULT_XLM_BUNDLE_DIR = path.join(PKG_ROOT, XLM_BUNDLE_DIR_NAME);
 
-/**
- * @typedef {Object} LocalModeratorOptions
- * @property {string} [modelId] Hub model id or local directory path
- * @property {string | null} [cacheDir] Transformers cache directory
- * @property {(modelId: string) => void} [onFirstLoad] Called before the pipeline is created (e.g. log "downloading…")
- */
+/* ----------------------------- helpers ----------------------------- */
 
-/**
- * @typedef {Object} ClassifyResult
- * @property {boolean} safe
- * @property {number} toxicityScore
- * @property {string[]} flaggedCategories
- * @property {Record<string, number>} scoresByCategory
- */
+function resultFromLabels(results, threshold) {
+  const toxicityScore = toxicityProbabilityFromLabels(results);
+  const safe = toxicityScore < threshold;
 
-/**
- * @param {LocalModeratorOptions} [options]
- */
+  const flaggedCategories =
+    safe || !results[0]
+      ? []
+      : [primaryFlaggedCategoryLabel(results)];
+
+  const scoresByCategory = Object.fromEntries(
+    results.map((r) => [r.label, Number(r.score) || 0])
+  );
+
+  return {
+    safe,
+    toxicityScore,
+    flaggedCategories,
+    scoresByCategory,
+  };
+}
+
+/* ---------------- Amharic binary model support ---------------- */
+
+function isBinaryAmharicModel(results) {
+  return (
+    Array.isArray(results) &&
+    results.length > 0 &&
+    results.every(
+      (r) => r.label === "hate" || r.label === "normal"
+    )
+  );
+}
+
+function normalizeAmharicResults(results, threshold) {
+  const hate =
+    results.find((r) => r.label === "hate")?.score ?? 0;
+
+  const normal =
+    results.find((r) => r.label === "normal")?.score ?? 0;
+
+  const toxicityScore = hate;
+
+  return {
+    toxicityScore,
+    safe: toxicityScore < threshold,
+    flaggedCategories:
+      toxicityScore >= threshold ? ["toxicity"] : [],
+    scoresByCategory: {
+      hate,
+      normal,
+    },
+  };
+}
+
+/* ----------------------------- main ----------------------------- */
+
 export function createModerator(options = {}) {
-  const modelId = options.modelId ?? DEFAULT_LOCAL_MODERATION_MODEL;
+  const modelId =
+    options.modelId ?? DEFAULT_LOCAL_MODERATION_MODEL;
+
+  const amharicEnabled = Boolean(options.amharicEnabled);
+
+  const amharicModelId =
+    options.amharicModelId ?? AMHARIC_HATE_SPEECH_REPO;
+
+  const hfApiToken =
+    typeof options.hfApiToken === "string"
+      ? options.hfApiToken.trim()
+      : "";
+
   const cacheDir = options.cacheDir ?? null;
+
   const onFirstLoad = options.onFirstLoad ?? null;
 
-  /** @type {Promise<any> | null} */
   let pipePromise = null;
+  let amharicPipePromise = null;
+  let amharicLocalReady = null;
 
   function ensureCache() {
-    const dir = typeof cacheDir === "string" ? cacheDir.trim() : "";
-    if (dir) {
-      env.cacheDir = dir;
+    const dir =
+      typeof cacheDir === "string" ? cacheDir.trim() : "";
+    if (dir) env.cacheDir = dir;
+  }
+
+  async function loadPipeline(
+    hubOrPath,
+    bundleDirName,
+    absoluteBundleDir,
+    quantized
+  ) {
+    let loadId = hubOrPath;
+    let restoreLocalModelPath = null;
+
+    const useLocalBundle =
+      hubOrPath === XLM_MULTILINGUAL_TOXIC_REPO ||
+      hubOrPath === AMHARIC_HATE_SPEECH_REPO ||
+      path.isAbsolute(hubOrPath);
+
+    if (hubOrPath === XLM_MULTILINGUAL_TOXIC_REPO) {
+      await ensureXlmMultilingualOnnxBundle(
+        absoluteBundleDir
+      );
+      restoreLocalModelPath = env.localModelPath;
+      env.localModelPath =
+        path.normalize(PKG_ROOT) + path.sep;
+      loadId = bundleDirName;
+    } else if (
+      hubOrPath === AMHARIC_HATE_SPEECH_REPO
+    ) {
+      restoreLocalModelPath = env.localModelPath;
+      env.localModelPath =
+        path.normalize(PKG_ROOT) + path.sep;
+      loadId = bundleDirName;
+    } else if (path.isAbsolute(hubOrPath)) {
+      restoreLocalModelPath = env.localModelPath;
+      env.localModelPath =
+        path.dirname(hubOrPath) + path.sep;
+      loadId = path.basename(hubOrPath);
     }
+
+    if (typeof onFirstLoad === "function") {
+      onFirstLoad(loadId);
+    }
+
+    return pipeline(
+      "text-classification",
+      loadId,
+      { quantized }
+    )
+      .then((pipe) => {
+        const cfg = pipe.model?.config;
+        if (cfg?.model_type === "xlm-roberta") {
+          const n = Object.keys(
+            cfg.id2label || {}
+          ).length;
+          if (n > 2)
+            cfg.problem_type =
+              "multi_label_classification";
+        }
+        return pipe;
+      })
+      .finally(() => {
+        if (restoreLocalModelPath !== null) {
+          env.localModelPath = restoreLocalModelPath;
+        }
+      });
   }
 
   async function getClassifier() {
     ensureCache();
     if (!pipePromise) {
-      let loadId = modelId;
-      /** @type {string | null} */
-      let restoreLocalModelPath = null;
-
-      if (modelId === XLM_MULTILINGUAL_TOXIC_REPO) {
-        await ensureXlmMultilingualOnnxBundle(DEFAULT_XLM_BUNDLE_DIR);
-        // Transformers.js hub helpers break on absolute paths as "model id" (they become bogus HF URLs).
-        // Load the bundle relative to PKG_ROOT via env.localModelPath (see env.js / hub.js pathJoin).
-        restoreLocalModelPath = env.localModelPath;
-        env.localModelPath = path.normalize(PKG_ROOT) + path.sep;
-        loadId = XLM_BUNDLE_DIR_NAME;
-      } else if (path.isAbsolute(modelId)) {
-        restoreLocalModelPath = env.localModelPath;
-        env.localModelPath = path.normalize(path.dirname(modelId)) + path.sep;
-        loadId = path.basename(modelId);
-      }
-
-      if (typeof onFirstLoad === "function") {
-        onFirstLoad(
-          modelId === XLM_MULTILINGUAL_TOXIC_REPO
-            ? DEFAULT_XLM_BUNDLE_DIR
-            : path.isAbsolute(modelId)
-              ? modelId
-              : loadId
-        );
-      }
-      pipePromise = pipeline("text-classification", loadId, { quantized: true })
-        .then((pipe) => {
-          const cfg = pipe.model?.config;
-          if (cfg?.model_type === "xlm-roberta") {
-            const n = Object.keys(cfg.id2label || {}).length;
-            if (n > 2) cfg.problem_type = "multi_label_classification";
-          }
-          return pipe;
-        })
-        .finally(() => {
-          if (restoreLocalModelPath !== null) {
-            env.localModelPath = restoreLocalModelPath;
-          }
-        });
+      pipePromise = loadPipeline(
+        modelId,
+        XLM_BUNDLE_DIR_NAME,
+        DEFAULT_XLM_BUNDLE_DIR,
+        true
+      );
     }
     return pipePromise;
   }
 
-  /**
-   * @param {string} text
-   * @param {{ threshold?: number }} [opts]
-   * @returns {Promise<ClassifyResult>}
-   */
+  async function isAmharicLocalReady() {
+    if (amharicLocalReady !== null)
+      return amharicLocalReady;
+
+    const bundleDir = path.isAbsolute(amharicModelId)
+      ? amharicModelId
+      : DEFAULT_AMHARIC_BUNDLE_DIR;
+
+    await ensureAmharicOnnxBundleCompat(bundleDir);
+    await ensureAmharicTokenizerCompat(bundleDir);
+    amharicLocalReady =
+      await amharicOnnxBundleReady(bundleDir);
+
+    return amharicLocalReady;
+  }
+
+  async function getAmharicClassifier() {
+    ensureCache();
+
+    if (!amharicPipePromise) {
+      const bundleDir = path.isAbsolute(amharicModelId)
+        ? amharicModelId
+        : DEFAULT_AMHARIC_BUNDLE_DIR;
+
+      await ensureAmharicOnnxBundleCompat(bundleDir);
+      await ensureAmharicTokenizerCompat(bundleDir);
+
+      const loadHub = path.isAbsolute(amharicModelId)
+        ? amharicModelId
+        : AMHARIC_HATE_SPEECH_REPO;
+
+      const dirName = path.isAbsolute(amharicModelId)
+        ? path.basename(amharicModelId)
+        : AMHARIC_BUNDLE_DIR_NAME;
+
+      amharicPipePromise = loadPipeline(
+        loadHub,
+        dirName,
+        bundleDir,
+        false
+      );
+    }
+
+    return amharicPipePromise;
+  }
+
+  /* ---------------- classification ---------------- */
+
+  async function classifyDefault(text, threshold) {
+    const classifier = await getClassifier();
+    const raw = await classifier(text, {
+      topk: null,
+    });
+
+    const results = Array.isArray(raw)
+      ? raw
+      : [raw];
+
+    return resultFromLabels(results, threshold);
+  }
+
+  async function classifyAmharic(text, threshold) {
+    if (await isAmharicLocalReady()) {
+      const classifier =
+        await getAmharicClassifier();
+
+      const raw = await classifier(text, {
+        topk: null,
+      });
+
+      const results = Array.isArray(raw)
+        ? raw
+        : [raw];
+
+      // ✅ FIX: correct schema handling
+      if (isBinaryAmharicModel(results)) {
+        return normalizeAmharicResults(
+          results,
+          threshold
+        );
+      }
+
+      return resultFromLabels(results, threshold);
+    }
+
+    if (hfApiToken) {
+      try {
+        const results =
+          await classifyAmharicViaHfApi(
+            text,
+            hfApiToken,
+            amharicModelId
+          );
+
+        return resultFromLabels(results, threshold);
+      } catch (err) {
+        console.warn(
+          "[local-moderation] Amharic HF API unavailable, falling back to default model:",
+          err
+        );
+      }
+    }
+
+    return classifyDefault(text, threshold);
+  }
+
   async function classify(text, opts = {}) {
     const threshold =
-      typeof opts.threshold === "number" && Number.isFinite(opts.threshold)
+      typeof opts.threshold === "number" &&
+      Number.isFinite(opts.threshold)
         ? opts.threshold
         : 0.5;
 
     const trimmed = String(text ?? "").trim();
+
     if (!trimmed) {
       return {
         safe: true,
@@ -120,27 +322,28 @@ export function createModerator(options = {}) {
       };
     }
 
-    const classifier = await getClassifier();
-    /** @type {{ label: string, score: number } | { label: string, score: number }[]} */
-    const raw = await classifier(trimmed, { topk: null });
-    const results = Array.isArray(raw) ? raw : [raw];
+    if (
+      !amharicEnabled ||
+      !containsAmharic(trimmed)
+    ) {
+      return classifyDefault(
+        trimmed,
+        threshold
+      );
+    }
 
-    const toxicityScore = toxicityProbabilityFromLabels(results);
-    const safe = toxicityScore < threshold;
+    if (containsLatin(trimmed)) {
+      const [a, b] = await Promise.all([
+        classifyDefault(trimmed, threshold),
+        classifyAmharic(trimmed, threshold),
+      ]);
 
-    const flaggedCategories =
-      safe || !results[0] ? [] : [primaryFlaggedCategoryLabel(results)];
+      return a.toxicityScore >= b.toxicityScore
+        ? a
+        : b;
+    }
 
-    const scoresByCategory = Object.fromEntries(
-      results.map((r) => [r.label, Number(r.score) || 0])
-    );
-
-    return {
-      safe,
-      toxicityScore,
-      flaggedCategories,
-      scoresByCategory,
-    };
+    return classifyAmharic(trimmed, threshold);
   }
 
   return {

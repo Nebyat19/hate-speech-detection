@@ -3,9 +3,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../../../../.env") });
 dotenv.config();
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const appNameRaw = String(process.env.APP_NAME ?? "Safetext").trim();
 const appName = appNameRaw || "Safetext";
@@ -62,6 +63,9 @@ export const appConfig = {
   localModerationModel:
     process.env.LOCAL_MODERATION_MODEL ||
     "hoan/multilingual-toxic-xlm-roberta-dynamic-quantized",
+  amharicModerationModel:
+    process.env.AMHARIC_MODERATION_MODEL || "uhhlt/amharic-hate-speech",
+  hfApiToken: process.env.HF_TOKEN || process.env.HF_API_KEY || "",
   transformersCacheDir: process.env.TRANSFORMERS_CACHE || "",
   publicApiKeys: (process.env.PUBLIC_API_KEYS || "")
     .split(",")

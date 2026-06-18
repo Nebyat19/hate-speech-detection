@@ -16,7 +16,10 @@ function isNegatedToxicLabel(raw) {
     l.includes("non-toxic") ||
     l.includes("nontoxic") ||
     l === "not toxic" ||
-    l.includes("non_toxic")
+    l.includes("non_toxic") ||
+    l.includes("not-hate") ||
+    l === "not hate" ||
+    l.includes("not_hate")
   );
 }
 
@@ -28,6 +31,13 @@ function isToxicLabel(raw) {
   const l = raw.toLowerCase();
   if (isNegatedToxicLabel(l)) return false;
   if (l.includes("toxic")) return true;
+  if (
+    l === "hate" ||
+    l === "offensive" ||
+    l.includes("hate_speech") ||
+    l.includes("hate speech")
+  )
+    return true;
   return (
     l.includes("insult") ||
     l.includes("obscene") ||
