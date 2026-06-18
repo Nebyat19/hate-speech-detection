@@ -3,12 +3,9 @@ import { fileURLToPath } from "node:url";
 import { env, pipeline } from "@xenova/transformers";
 
 import {
-  AMHARIC_BUNDLE_DIR_NAME,
   AMHARIC_HATE_SPEECH_REPO,
-  amharicOnnxBundleReady,
   ensureAmharicOnnxBundleCompat,
   ensureAmharicTokenizerCompat,
-  classifyAmharicViaHfApi,
   DEFAULT_AMHARIC_BUNDLE_DIR,
 } from "./amharicHateSpeech.js";
 
@@ -99,13 +96,14 @@ export function createModerator(options = {}) {
 
   const amharicEnabled = Boolean(options.amharicEnabled);
 
-  const amharicModelId =
-    options.amharicModelId ?? AMHARIC_HATE_SPEECH_REPO;
-
-  const hfApiToken =
-    typeof options.hfApiToken === "string"
-      ? options.hfApiToken.trim()
+  const amharicModelPath =
+    typeof options.amharicModelPath === "string"
+      ? options.amharicModelPath.trim()
       : "";
+
+  const amharicBundleDir = path.isAbsolute(amharicModelPath)
+    ? amharicModelPath
+    : DEFAULT_AMHARIC_BUNDLE_DIR;
 
   const cacheDir = options.cacheDir ?? null;
 
@@ -113,8 +111,6 @@ export function createModerator(options = {}) {
 
   let pipePromise = null;
   let amharicPipePromise = null;
-  let amharicLocalReady = null;
-
   function ensureCache() {
     const dir =
       typeof cacheDir === "string" ? cacheDir.trim() : "";
@@ -198,51 +194,39 @@ export function createModerator(options = {}) {
     return pipePromise;
   }
 
-  async function isAmharicLocalReady() {
-    if (amharicLocalReady !== null)
-      return amharicLocalReady;
-
-    const bundleDir = path.isAbsolute(amharicModelId)
-      ? amharicModelId
-      : DEFAULT_AMHARIC_BUNDLE_DIR;
-
-    await ensureAmharicOnnxBundleCompat(bundleDir);
-    await ensureAmharicTokenizerCompat(bundleDir);
-    amharicLocalReady =
-      await amharicOnnxBundleReady(bundleDir);
-
-    return amharicLocalReady;
-  }
-
   async function getAmharicClassifier() {
     ensureCache();
 
     if (!amharicPipePromise) {
-      const bundleDir = path.isAbsolute(amharicModelId)
-        ? amharicModelId
-        : DEFAULT_AMHARIC_BUNDLE_DIR;
-
-      await ensureAmharicOnnxBundleCompat(bundleDir);
-      await ensureAmharicTokenizerCompat(bundleDir);
-
-      const loadHub = path.isAbsolute(amharicModelId)
-        ? amharicModelId
-        : AMHARIC_HATE_SPEECH_REPO;
-
-      const dirName = path.isAbsolute(amharicModelId)
-        ? path.basename(amharicModelId)
-        : AMHARIC_BUNDLE_DIR_NAME;
+      await ensureAmharicOnnxBundleCompat(amharicBundleDir);
+      await ensureAmharicTokenizerCompat(amharicBundleDir);
 
       amharicPipePromise = loadPipeline(
-        loadHub,
-        dirName,
-        bundleDir,
+        amharicBundleDir,
+        path.basename(amharicBundleDir),
+        amharicBundleDir,
         false
       );
     }
 
     return amharicPipePromise;
   }
+
+  async function preloadAmharicClassifier() {
+    if (!amharicEnabled) return;
+
+    try {
+      await getAmharicClassifier();
+    } catch (err) {
+      amharicPipePromise = null;
+      console.warn(
+        "[local-moderation] Failed to preload Amharic local model:",
+        err
+      );
+    }
+  }
+
+  void preloadAmharicClassifier();
 
   /* ---------------- classification ---------------- */
 
@@ -260,7 +244,7 @@ export function createModerator(options = {}) {
   }
 
   async function classifyAmharic(text, threshold) {
-    if (await isAmharicLocalReady()) {
+    try {
       const classifier =
         await getAmharicClassifier();
 
@@ -281,24 +265,11 @@ export function createModerator(options = {}) {
       }
 
       return resultFromLabels(results, threshold);
-    }
-
-    if (hfApiToken) {
-      try {
-        const results =
-          await classifyAmharicViaHfApi(
-            text,
-            hfApiToken,
-            amharicModelId
-          );
-
-        return resultFromLabels(results, threshold);
-      } catch (err) {
-        console.warn(
-          "[local-moderation] Amharic HF API unavailable, falling back to default model:",
-          err
-        );
-      }
+    } catch (err) {
+      console.warn(
+        "[local-moderation] Amharic local model unavailable, falling back to default model:",
+        err
+      );
     }
 
     return classifyDefault(text, threshold);

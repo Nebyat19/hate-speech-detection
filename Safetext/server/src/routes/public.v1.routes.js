@@ -26,6 +26,7 @@ router.get("/health", (_req, res) => {
     ok: true,
     service: "Safetext-public-v1",
     model: appConfig.localModerationModel,
+    amharicModel: appConfig.amharicModerationModel,
   });
 });
 
